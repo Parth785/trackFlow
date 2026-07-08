@@ -1,4 +1,5 @@
 import { useEffect, useState, useRef } from "react";
+import { fetchOsrmEta } from "../utils/osrm";
 
 export function useOrderStatus(stompClient, orderId, onDelivered) {
   const [status, setStatus] = useState(null);
@@ -6,16 +7,13 @@ export function useOrderStatus(stompClient, orderId, onDelivered) {
   const [etaCountdown, setEtaCountdown] = useState(null);
   const deliveredRef = useRef(false);
   const countdownRef = useRef(null);
+  const autoClearRef = useRef(null);
 
-  // Start countdown timer when ETA is received
   const startCountdown = (etaMinutes) => {
-    // Clear any existing countdown
     if (countdownRef.current) clearInterval(countdownRef.current);
 
-    // Convert ETA to seconds for precision
     let remainingSeconds = etaMinutes * 60;
-    const totalSeconds = etaMinutes * 60;
-    setEtaCountdown({ mins: etaMinutes, secs: 0, totalSeconds });
+    setEtaCountdown({ mins: etaMinutes, secs: 0, totalSeconds: remainingSeconds });
 
     countdownRef.current = setInterval(() => {
       remainingSeconds -= 1;
@@ -26,22 +24,24 @@ export function useOrderStatus(stompClient, orderId, onDelivered) {
         return;
       }
 
-      // Convert back to minutes — show "X mins Y secs" when under 2 mins
       const mins = Math.floor(remainingSeconds / 60);
       const secs = remainingSeconds % 60;
-
       setEtaCountdown({ mins, secs, totalSeconds: remainingSeconds });
     }, 1000);
   };
 
   useEffect(() => {
+    // Reset everything on new order
     setStatus("ASSIGNED");
     setEta(null);
     setEtaCountdown(null);
     deliveredRef.current = false;
 
-    if (countdownRef.current) {
-      clearInterval(countdownRef.current);
+    // Cancel any pending auto-clear from previous order
+    if (countdownRef.current) clearInterval(countdownRef.current);
+    if (autoClearRef.current) {
+      clearTimeout(autoClearRef.current);
+      autoClearRef.current = null;
     }
 
     if (!stompClient || !orderId) return;
@@ -51,21 +51,36 @@ export function useOrderStatus(stompClient, orderId, onDelivered) {
 
     let subscription;
     try {
-      subscription = stompClient.subscribe(topic, (message) => {
+      subscription = stompClient.subscribe(topic, async (message) => {
         const data = JSON.parse(message.body);
         console.log("Order status received:", data);
         setStatus(data.status);
 
-        if (data.eta) {
-          setEta(data.eta);
-          startCountdown(data.eta);
+        if (data.status === "PICKED_UP") {
+          let etaMinutes = data.eta || null;
+
+          if (data.pickupLat && data.dropLat) {
+            const osrmEta = await fetchOsrmEta(
+              data.pickupLat, data.pickupLng,
+              data.dropLat, data.dropLng
+            );
+            if (osrmEta) etaMinutes = osrmEta;
+          }
+
+          if (etaMinutes) {
+            setEta(etaMinutes);
+            startCountdown(etaMinutes);
+          }
         }
 
         if (data.status === "DELIVERED" && !deliveredRef.current) {
           deliveredRef.current = true;
           if (countdownRef.current) clearInterval(countdownRef.current);
           setEtaCountdown(null);
-          setTimeout(() => {
+
+          // Store timeout ref so we can cancel it if user places new order
+          autoClearRef.current = setTimeout(() => {
+            autoClearRef.current = null;
             if (onDelivered) onDelivered();
           }, 4000);
         }
@@ -78,9 +93,8 @@ export function useOrderStatus(stompClient, orderId, onDelivered) {
       if (subscription) {
         try { subscription.unsubscribe(); } catch (e) { }
       }
-      if (countdownRef.current) {
-        clearInterval(countdownRef.current);
-      }
+      if (countdownRef.current) clearInterval(countdownRef.current);
+      // Don't cancel autoClearRef here — let it fire unless new order cancels it
     };
   }, [stompClient, orderId]);
 

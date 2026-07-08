@@ -152,9 +152,16 @@ def send_order_status(order_id, agent_id, status, extra=None):
         payload.update(extra)
 
     try:
+        # Notify tracking service for WebSocket broadcast
         requests.post(
             "http://localhost:8082/api/tracking/order-status",
             json=payload,
+            timeout=3
+        )
+        # Update order status in MongoDB
+        requests.patch(
+            f"http://localhost:8095/api/orders/{order_id}/status",
+            json={"status": status},
             timeout=3
         )
         print(f"[{agent_id}] Status sent: {status}")
@@ -309,7 +316,7 @@ def agent_loop(agent_id, route):
 
             print(f"[{agent_id}] Order {order_id} — heading to pickup")
 
-            # Phase 1 — drive to pickup
+            # Phase 1 — drive to pickup (uninterruptible)
             current_lat, current_lng, _ = drive_to_delivery(
                 agent_id,
                 current_lat, current_lng,
@@ -328,9 +335,17 @@ def agent_loop(agent_id, route):
             print(f"[{agent_id}] Picking up order... ETA {eta} mins")
             time.sleep(4)
 
-            send_order_status(order_id, agent_id, "PICKED_UP", {"eta": eta})
+            # Send PICKED_UP with all coordinates so frontend
+            # can calculate accurate OSRM ETA
+            send_order_status(order_id, agent_id, "PICKED_UP", {
+                "eta": eta,
+                "pickupLat": pickup_lat,
+                "pickupLng": pickup_lng,
+                "dropLat": drop_lat,
+                "dropLng": drop_lng,
+            })
 
-            # Phase 2 — drive to drop
+            # Phase 2 — drive to drop (uninterruptible)
             print(f"[{agent_id}] Heading to drop")
             current_lat, current_lng, _ = drive_to_delivery(
                 agent_id,
@@ -341,7 +356,7 @@ def agent_loop(agent_id, route):
             print(f"[{agent_id}] Delivered!")
             send_order_status(order_id, agent_id, "DELIVERED")
 
-            # Resume patrol
+            # Resume patrol from current position
             going_forward = True
             continue
 
@@ -358,6 +373,7 @@ def agent_loop(agent_id, route):
             order_queue
         )
 
+        # Reverse direction at end of route
         going_forward = not going_forward
 
 

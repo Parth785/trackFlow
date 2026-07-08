@@ -7,6 +7,151 @@
   width: 100vw;
   height: 100vh;
 }
+/* Admin Dashboard */
+.admin-layout {
+  display: flex;
+  width: 100vw;
+  height: 100vh;
+  background: #0f172a;
+  overflow: hidden;
+}
+
+.admin-map {
+  flex: 1;
+  height: 100vh;
+}
+
+.admin-panel {
+  width: 420px;
+  height: 100vh;
+  overflow-y: auto;
+  background: #0f172a;
+  border-left: 1px solid #1e293b;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.admin-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 20px;
+  border-bottom: 1px solid #1e293b;
+  background: #0f172a;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.admin-section {
+  padding: 16px 20px;
+  border-bottom: 1px solid #1e293b;
+}
+
+.admin-section-title {
+  font-size: 11px;
+  font-weight: 600;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-bottom: 12px;
+}
+
+.stat-cards {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.stat-card {
+  background: #1e293b;
+  border: 1px solid #334155;
+  border-radius: 10px;
+  padding: 12px 14px;
+}
+
+.stat-card-value {
+  font-size: 24px;
+  font-weight: 700;
+  color: #e2e8f0;
+  line-height: 1;
+  margin-bottom: 4px;
+}
+
+.stat-card-label {
+  font-size: 11px;
+  color: #64748b;
+}
+
+.stat-card-accent {
+  border-color: #FF5200;
+}
+
+.stat-card-accent .stat-card-value {
+  color: #FF5200;
+}
+
+/* Orders table */
+.orders-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+.orders-table th {
+  text-align: left;
+  color: #64748b;
+  font-weight: 500;
+  padding: 6px 8px;
+  border-bottom: 1px solid #1e293b;
+}
+
+.orders-table td {
+  padding: 8px 8px;
+  color: #94a3b8;
+  border-bottom: 1px solid #0f172a;
+  vertical-align: middle;
+}
+
+.orders-table tr:hover td {
+  background: #1e293b;
+}
+
+.status-badge {
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.status-badge.ASSIGNED {
+  background: rgba(59, 130, 246, 0.15);
+  color: #60a5fa;
+}
+
+.status-badge.PICKED_UP {
+  background: rgba(255, 82, 0, 0.15);
+  color: #FF5200;
+}
+
+.status-badge.DELIVERED {
+  background: rgba(34, 197, 94, 0.15);
+  color: #22c55e;
+}
+
+.agent-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  display: inline-block;
+  margin-right: 6px;
+}
+
+.agent-dot.AVAILABLE { background: #22c55e; }
+.agent-dot.BUSY { background: #f97316; }
+.agent-dot.OFFLINE { background: #475569; }
 
 @keyframes pulse {
   0%, 100% { opacity: 1; transform: scale(1); }
@@ -34,7 +179,7 @@ body {
 /* Stats panel */
 .stats-panel {
   position: fixed;
-  top: 20px;
+  top: 40px;
   right: 20px;
   background: rgba(15, 23, 42, 0.9);
   border: 1px solid #334155;

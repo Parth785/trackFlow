@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 
 function distanceBetween(lat1, lng1, lat2, lng2) {
   const R = 6371000;
@@ -12,12 +12,10 @@ function distanceBetween(lat1, lng1, lat2, lng2) {
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
-function findBestTrimIndex(agentLat, agentLng, waypoints) {
+function findClosestIndex(agentLat, agentLng, waypoints) {
   if (!waypoints || waypoints.length < 2) return 0;
-
   let closestIndex = 0;
   let closestDistance = Infinity;
-
   waypoints.forEach(([lat, lng], index) => {
     const dist = distanceBetween(agentLat, agentLng, lat, lng);
     if (dist < closestDistance) {
@@ -25,43 +23,42 @@ function findBestTrimIndex(agentLat, agentLng, waypoints) {
       closestIndex = index;
     }
   });
-
-  // No look ahead — line disappears exactly where bike is
   return closestIndex;
 }
 
-export function useRouteProgress(routes, assignedAgent, orderStatus) {
+export function useRouteProgress(agentPos, orderStatus) {
   const [trimmedRoutes, setTrimmedRoutes] = useState(null);
   const originalRoutes = useRef(null);
 
-  useEffect(() => {
-    if (routes) {
-      originalRoutes.current = routes;
-      setTrimmedRoutes({
-        ...routes,
-        agentToPickup: routes.agentToPickup,
-        pickupToDrop: [],
-      });
-    } else {
+  const setRoutes = useCallback((routes) => {
+    if (!routes) {
       originalRoutes.current = null;
       setTrimmedRoutes(null);
+      return;
     }
-  }, [routes]);
+    originalRoutes.current = routes;
+    setTrimmedRoutes({
+      ...routes,
+      agentToPickup: routes.agentToPickup || [],
+      pickupToDrop: [],
+    });
+  }, []);
 
   useEffect(() => {
-    if (!originalRoutes.current || !assignedAgent) return;
+    // Nothing to trim without position or routes
+    if (!agentPos || !originalRoutes.current) return;
 
-    const agentLat = assignedAgent.lat;
-    const agentLng = assignedAgent.lng;
+    const { lat: agentLat, lng: agentLng } = agentPos;
 
     setTrimmedRoutes(prev => {
-      if (!prev) return null;
+      // Guard against null prev
+      if (!prev || !originalRoutes.current) return prev;
 
       if (orderStatus === "ASSIGNED" || orderStatus === null) {
         const agentToPickup = originalRoutes.current.agentToPickup;
         if (!agentToPickup || agentToPickup.length < 2) return prev;
 
-        const trimIndex = findBestTrimIndex(agentLat, agentLng, agentToPickup);
+        const trimIndex = findClosestIndex(agentLat, agentLng, agentToPickup);
         const remaining = agentToPickup.slice(trimIndex);
 
         return {
@@ -75,7 +72,7 @@ export function useRouteProgress(routes, assignedAgent, orderStatus) {
         const pickupToDrop = originalRoutes.current.pickupToDrop;
         if (!pickupToDrop || pickupToDrop.length < 2) return prev;
 
-        const trimIndex = findBestTrimIndex(agentLat, agentLng, pickupToDrop);
+        const trimIndex = findClosestIndex(agentLat, agentLng, pickupToDrop);
         const remaining = pickupToDrop.slice(trimIndex);
 
         return {
@@ -96,7 +93,7 @@ export function useRouteProgress(routes, assignedAgent, orderStatus) {
       return prev;
     });
 
-  }, [assignedAgent?.lat, assignedAgent?.lng, orderStatus]);
+  }, [agentPos?.lat, agentPos?.lng, orderStatus]);
 
-  return trimmedRoutes;
+  return { trimmedRoutes, setRoutes };
 }

@@ -33,23 +33,14 @@ public class TrackingController {
         String agentId = (String) request.get("agentId");
         String status = (String) request.get("status");
 
-        log.info("Broadcasting order status: orderId={} status={}", orderId, status);
-
-        Map<String, Object> payload = new java.util.HashMap<>();
-        payload.put("orderId", orderId);
-        payload.put("agentId", agentId);
-        payload.put("status", status);
-
-        // Include ETA if present
-        if (request.containsKey("eta")) {
-            payload.put("eta", request.get("eta"));
-        }
+        Map<String, Object> payload = new java.util.HashMap<>(request);
 
         messagingTemplate.convertAndSend(
                 "/topic/order/" + orderId + "/status",
                 payload
         );
 
+        log.info("Order status broadcast: {} -> {}", orderId, status);
         return ResponseEntity.ok().build();
     }
 }
